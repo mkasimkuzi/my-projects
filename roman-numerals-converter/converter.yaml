@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: | 
+  This cloudformation file is created to deploy roman numeral converter application.
+
+Resources:
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Enable HTTP for Apache Web Server and SSH for secure connection"
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  WebServerHost:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0715c1897453cabd1
+      InstanceType: t2.micro
+      KeyName: first-key-pair
+      SecurityGroupIds:
+        - !Ref WebServerSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub Web Server of ${AWS::StackName}
+      UserData:
+       Fn::Base64:
+        !Sub |
+         #! /bin/bash
+            yum update -y
+            yum install python-pip -y
+            pip install flask
+            from flask import Flask 
+
+            app = Flask(__name__)
+
+            @app.route('/')
+            def roman_to_integer(roman):
+                roman_numerals = {
+                    'I': 1,
+                    'V': 5,
+                    'X': 10,
+                    'L': 50,
+                    'C': 100,
+                    'D': 500,
+                    'M': 1000
+                }
+                result = 0
+                previous_value = 0
+                for char in roman[::-1]:
+                    current_value = roman_numerals[char]
+                    if current_value >= previous_value:
+                        result += current_value
+                    else:
+                        result -= current_value
+                    previous_value = current_value
+                return result
+            # Örnek kullanim
+            roman_numeral = input("Enter a Roman number: ")
+            latin_number = roman_to_integer(roman_numeral)
+            print("Latin number:", latin_number)
+
+Outputs:
+  WebSiteURL:
+   Value: !Sub
+   - http://${PublicAddress}
+   - PublicAddress: !GetAtt WebServerHost.PublicDnsName
